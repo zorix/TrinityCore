@@ -67,3 +67,12 @@ rapidjson (A fast JSON parser/generator for C++ with both SAX/DOM style API http
 protobuf (Protocol Buffers - Google's data interchange format https://developers.google.com/protocol-buffers/)
   https://github.com/google/protobuf
   Version: v2.6.1
+
+date (A date and time library based on the C++11 (and beyond) <chrono> header)
+  https://github.com/HowardHinnant/date
+  Version v2.0.0
+  Dependency for sqlpp11
+
+sqlpp11 (A type safe embedded domain specific language for SQL queries and results in C++)
+  https://github.com/rbock/sqlpp11
+  Version 0.43

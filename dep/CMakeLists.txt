@@ -39,6 +39,8 @@ if(SERVERS)
   add_subdirectory(rapidjson)
   add_subdirectory(efsw)
   add_subdirectory(protobuf)
+  add_subdirectory(date)
+  add_subdirectory(sqlpp11)
 endif()
 
 if(TOOLS)
