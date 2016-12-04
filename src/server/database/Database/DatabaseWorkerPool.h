@@ -281,10 +281,10 @@ class DatabaseWorkerPool : public sqlpp::connection
             {
             }
 
-            template <typename T>
-            std::ostream& operator<<(T t)
+            template <typename Fragment>
+            fmt::BasicWriter<char>& operator<<(Fragment fragment)
             {
-                return _os << t;
+                return _writer << fragment;
             }
 
             std::string escape(std::string arg)
@@ -293,13 +293,13 @@ class DatabaseWorkerPool : public sqlpp::connection
                 return arg;
             }
 
-            std::string str() const
+            char const* c_str() const
             {
-                return _os.str();
+                return _writer.c_str();
             }
 
             DatabaseWorkerPool& _db;
-            std::stringstream _os;
+            fmt::MemoryWriter _writer;
         };
 
         using _serializer_context_t = serializer_t;
@@ -310,54 +310,73 @@ class DatabaseWorkerPool : public sqlpp::connection
             using _null_result_is_trivial_value = std::true_type;
         };
 
-        template <typename I>
-        static serializer_t& _serialize_interpretable(const I& t, serializer_t& context)
+        template <typename Statement>
+        static serializer_t& _serialize_interpretable(Statement const& statement, serializer_t& context)
         {
-            return ::sqlpp::serialize(t, context);
+            return ::sqlpp::serialize(statement, context);
         }
 
-        template <typename I>
-        static serializer_t& _interpret_interpretable(const I& t, serializer_t& context)
+        template <typename Statement>
+        static serializer_t& _interpret_interpretable(Statement const& statement, serializer_t& context)
         {
-            return ::sqlpp::serialize(t, context);
+            return ::sqlpp::serialize(statement, context);
         }
 
         // type hint
-        template<typename Q> TypedQueryResult select(Q const&);
+        template<typename Select> TypedQueryResult select(Select const&);
 
-        template <typename Q>
-        auto _TQuery(Q const& q, ::sqlpp::consistent_t) -> decltype(q._run(*this))
+        template <typename Select>
+        auto _TQuery(Select const& s, ::sqlpp::consistent_t) -> decltype(s._run(*this))
         {
             serializer_t context(*this);
-            ::sqlpp::serialize(q, context);
-            return{ TypedQueryResult(Query(context.str().c_str())), q.get_dynamic_names() };
+            ::sqlpp::serialize(s, context);
+            return{ TypedQueryResult(Query(context.c_str())), s.get_dynamic_names() };
         }
 
-        template <typename Check, typename Q>
-        auto _TQuery(Q const& q, Check) -> Check;
+        template <typename Check, typename Select>
+        auto _TQuery(Select const&, Check) -> Check;
 
-        template <typename Q>
-        auto TQuery(const Q& q) -> decltype(this->_TQuery(q, sqlpp::run_check_t<serializer_t, Q>{}))
+        template <typename Select>
+        auto TQuery(Select const& s) -> decltype(this->_TQuery(s, sqlpp::run_check_t<serializer_t, Select>{}))
         {
-            return _TQuery(q, sqlpp::run_check_t<serializer_t, Q>{});
+            return _TQuery(s, sqlpp::run_check_t<serializer_t, Select>{});
         }
 
-        template <typename Q>
-        void _TExecute(Q const& q, ::sqlpp::consistent_t)
+        template <typename ExecuteStatement>
+        void _TExecute(ExecuteStatement const& e, ::sqlpp::consistent_t)
         {
             serializer_t context(this);
-            ::sqlpp::serialize(q, context);
-            Execute(context.str().c_str());
+            ::sqlpp::serialize(e, context);
+            Execute(context.c_str());
         }
 
-        template <typename Check, typename Q>
-        auto _TExecute(Q const& q, Check) -> Check;
+        template <typename Check, typename ExecuteStatement>
+        auto _TExecute(ExecuteStatement const&, Check) -> Check;
 
-        template <typename Q>
-        void TExecute(Q const& q)
+        template <typename ExecuteStatement>
+        void TExecute(ExecuteStatement const& q)
         {
-            _TExecute(q, sqlpp::run_check_t<serializer_t, Q>{});
+            _TExecute(q, sqlpp::run_check_t<serializer_t, ExecuteStatement>{});
         }
+
+        template <typename ExecuteStatement>
+        void _DirectTExecute(ExecuteStatement const& e, ::sqlpp::consistent_t)
+        {
+            serializer_t context(this);
+            ::sqlpp::serialize(e, context);
+            DirectExecute(context.c_str());
+        }
+
+        template <typename Check, typename ExecuteStatement>
+        auto _DirectTExecute(ExecuteStatement const&, Check)->Check;
+
+        template <typename ExecuteStatement>
+        void DirectTExecute(ExecuteStatement const& e)
+        {
+            _DirectTExecute(e, sqlpp::run_check_t<serializer_t, ExecuteStatement>{});
+        }
+
+        // SQLPP END
 
     private:
         uint32 OpenConnections(InternalIndex type, uint8 numConnections);
