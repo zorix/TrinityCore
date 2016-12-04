@@ -960,39 +960,32 @@ void DB2Manager::LoadHotfixData()
 {
     uint32 oldMSTime = getMSTime();
 
-    QueryResult result = HotfixDatabase.Query("SELECT TableHash, RecordID, `Timestamp`, Deleted FROM hotfix_data");
-
-    if (!result)
+    hotfixdb::HotfixData hotfixData{};
+    auto result = HotfixDatabase.TQuery(sqlpp::select(hotfixData.TableHash, hotfixData.RecordID, hotfixData.Timestamp, hotfixData.Deleted).from(hotfixData).unconditionally());
+    if (result.empty())
     {
         TC_LOG_INFO("misc", ">> Loaded 0 hotfix info entries.");
         return;
     }
 
-    uint32 count = 0;
-
-    _hotfixData.reserve(result->GetRowCount());
-
-    do
+    _hotfixData.reserve(result.size());
+    for (auto const& row : result)
     {
-        Field* fields = result->Fetch();
-
         HotfixNotify info;
-        info.TableHash = fields[0].GetUInt32();
-        info.Entry = fields[1].GetUInt32();
-        info.Timestamp = fields[2].GetUInt32();
+        info.TableHash = row.TableHash;
+        info.Entry = row.RecordID;
+        info.Timestamp = row.Timestamp;
         _hotfixData.push_back(info);
 
-        if (fields[3].GetBool())
+        if (row.Deleted)
         {
             auto itr = _stores.find(info.TableHash);
             if (itr != _stores.end())
                 itr->second->EraseRecord(info.Entry);
         }
+    }
 
-        ++count;
-    } while (result->NextRow());
-
-    TC_LOG_INFO("misc", ">> Loaded %u hotfix info entries in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+    TC_LOG_INFO("misc", ">> Loaded " SZFMTD " hotfix info entries in %u ms", _hotfixData.size(), GetMSTimeDiffToNow(oldMSTime));
 }
 
 time_t DB2Manager::GetHotfixDate(uint32 entry, uint32 type) const

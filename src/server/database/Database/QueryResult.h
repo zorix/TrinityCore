@@ -106,5 +106,61 @@ class TC_DATABASE_API PreparedResultSet
 
 typedef std::shared_ptr<PreparedResultSet> PreparedQueryResult;
 
-#endif
+template<typename ResultSetPtr>
+class TypedResultSet
+{
+public:
+    TypedResultSet() = default;
+    TypedResultSet(ResultSetPtr rawResult) : _rawResult(rawResult) { }
 
+    template <typename ResultRow>
+    void next(ResultRow& result_row)
+    {
+        if (!_rawResult)
+        {
+            result_row._invalidate();
+            return;
+        }
+
+        if (_rawResult->NextRow())
+        {
+            if (!result_row)
+                result_row._validate();
+
+            result_row._bind(*this);
+        }
+        else if (result_row)
+            result_row._invalidate();
+    }
+
+    std::size_t size() const
+    {
+        return std::size_t(_rawResult->GetRowCount());
+    }
+
+    void _bind_floating_point_result(size_t index, double* value, bool* is_null)
+    {
+        *is_null = (*_rawResult)[uint32(index)].IsNull();
+        *value = (*_rawResult)[uint32(index)].GetDouble();
+    }
+
+    void _bind_integral_result(size_t index, int64_t* value, bool* is_null)
+    {
+        *is_null = (*_rawResult)[uint32(index)].IsNull();
+        *value = (*_rawResult)[uint32(index)].GetInt64();
+    }
+
+    void _bind_text_result(size_t index, const char** value, size_t* len)
+    {
+        *value = (*_rawResult)[uint32(index)].GetCString();
+        *len = (*_rawResult)[uint32(index)].GetLength();
+    }
+
+private:
+    ResultSetPtr _rawResult;
+};
+
+typedef TypedResultSet<QueryResult> TypedQueryResult;
+typedef TypedResultSet<PreparedQueryResult> TypedPreparedQueryResult;
+
+#endif

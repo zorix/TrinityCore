@@ -38,6 +38,7 @@
 #include "Implementation/CharacterDatabase.h"
 #include "Implementation/WorldDatabase.h"
 #include "Implementation/HotfixDatabase.h"
+#include "Implementation/HotfixDatabaseTypes.h"
 
 /// Accessor to the world database
 TC_DATABASE_API extern WorldDatabaseWorkerPool WorldDatabase;

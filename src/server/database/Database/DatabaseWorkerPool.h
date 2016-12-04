@@ -34,6 +34,8 @@
 #include <memory>
 #include <array>
 
+#include <sqlpp11/sqlpp11.h>
+
 class PingOperation : public SQLOperation
 {
     //! Operation for idle delaythreads
@@ -45,7 +47,7 @@ class PingOperation : public SQLOperation
 };
 
 template <class T>
-class DatabaseWorkerPool
+class DatabaseWorkerPool : public sqlpp::connection
 {
     private:
         enum InternalIndex
@@ -270,6 +272,92 @@ class DatabaseWorkerPool
 
         //! Keeps all our MySQL connections alive, prevent the server from disconnecting us.
         void KeepAlive();
+
+        // SQLPP
+
+        struct serializer_t
+        {
+            serializer_t(DatabaseWorkerPool& db) : _db(db)
+            {
+            }
+
+            template <typename T>
+            std::ostream& operator<<(T t)
+            {
+                return _os << t;
+            }
+
+            std::string escape(std::string arg)
+            {
+                _db.EscapeString(arg);
+                return arg;
+            }
+
+            std::string str() const
+            {
+                return _os.str();
+            }
+
+            DatabaseWorkerPool& _db;
+            std::stringstream _os;
+        };
+
+        using _serializer_context_t = serializer_t;
+        using _interpreter_context_t = serializer_t;
+
+        struct _tags
+        {
+            using _null_result_is_trivial_value = std::true_type;
+        };
+
+        template <typename I>
+        static serializer_t& _serialize_interpretable(const I& t, serializer_t& context)
+        {
+            return ::sqlpp::serialize(t, context);
+        }
+
+        template <typename I>
+        static serializer_t& _interpret_interpretable(const I& t, serializer_t& context)
+        {
+            return ::sqlpp::serialize(t, context);
+        }
+
+        // type hint
+        template<typename Q> TypedQueryResult select(Q const&);
+
+        template <typename Q>
+        auto _TQuery(Q const& q, ::sqlpp::consistent_t) -> decltype(q._run(*this))
+        {
+            serializer_t context(*this);
+            ::sqlpp::serialize(q, context);
+            return{ TypedQueryResult(Query(context.str().c_str())), q.get_dynamic_names() };
+        }
+
+        template <typename Check, typename Q>
+        auto _TQuery(Q const& q, Check) -> Check;
+
+        template <typename Q>
+        auto TQuery(const Q& q) -> decltype(this->_TQuery(q, sqlpp::run_check_t<serializer_t, Q>{}))
+        {
+            return _TQuery(q, sqlpp::run_check_t<serializer_t, Q>{});
+        }
+
+        template <typename Q>
+        void _TExecute(Q const& q, ::sqlpp::consistent_t)
+        {
+            serializer_t context(this);
+            ::sqlpp::serialize(q, context);
+            Execute(context.str().c_str());
+        }
+
+        template <typename Check, typename Q>
+        auto _TExecute(Q const& q, Check) -> Check;
+
+        template <typename Q>
+        void TExecute(Q const& q)
+        {
+            _TExecute(q, sqlpp::run_check_t<serializer_t, Q>{});
+        }
 
     private:
         uint32 OpenConnections(InternalIndex type, uint8 numConnections);

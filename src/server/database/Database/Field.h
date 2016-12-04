@@ -296,6 +296,8 @@ class TC_DATABASE_API Field
             return result;
         }
 
+        uint32 GetLength() const { return data.length; }
+
         bool IsNull() const
         {
             return data.value == NULL;
