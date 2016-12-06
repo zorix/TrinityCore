@@ -228,18 +228,6 @@ void DatabaseWorkerPool<T>::DirectCommitTransaction(SQLTransaction& transaction)
 }
 
 template <class T>
-void DatabaseWorkerPool<T>::EscapeString(std::string& str)
-{
-    if (str.empty())
-        return;
-
-    char* buf = new char[str.size() * 2 + 1];
-    EscapeString(buf, str.c_str(), uint32(str.size()));
-    str = buf;
-    delete[] buf;
-}
-
-template <class T>
 void DatabaseWorkerPool<T>::KeepAlive()
 {
     //! Ping synchronous connections

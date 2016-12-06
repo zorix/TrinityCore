@@ -30,11 +30,10 @@
 #include "AdhocStatement.h"
 #include "StringFormat.h"
 
+#include <sqlpp11/sqlpp11.h>
 #include <mysqld_error.h>
 #include <memory>
 #include <array>
-
-#include <sqlpp11/sqlpp11.h>
 
 class PingOperation : public SQLOperation
 {
@@ -268,7 +267,10 @@ class DatabaseWorkerPool : public sqlpp::connection
         }
 
         //! Apply escape string'ing for current collation. (utf8)
-        void EscapeString(std::string& str);
+        void EscapeString(std::string& str)
+        {
+            _connections[IDX_SYNCH].front()->EscapeString(str);
+        }
 
         //! Keeps all our MySQL connections alive, prevent the server from disconnecting us.
         void KeepAlive();
@@ -380,15 +382,6 @@ class DatabaseWorkerPool : public sqlpp::connection
 
     private:
         uint32 OpenConnections(InternalIndex type, uint8 numConnections);
-
-        unsigned long EscapeString(char *to, const char *from, unsigned long length)
-        {
-            if (!to || !from || !length)
-                return 0;
-
-            return mysql_real_escape_string(
-                _connections[IDX_SYNCH].front()->GetHandle(), to, from, length);
-        }
 
         void Enqueue(SQLOperation* op)
         {

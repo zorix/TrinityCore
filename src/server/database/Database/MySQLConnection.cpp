@@ -410,6 +410,17 @@ int MySQLConnection::ExecuteTransaction(SQLTransaction& transaction)
     return 0;
 }
 
+void MySQLConnection::EscapeString(std::string& str)
+{
+    if (str.empty())
+        return;
+
+    char* buf = new char[str.size() * 2 + 1];
+    if (mysql_real_escape_string(GetHandle(), buf, str.c_str(), uint32(str.length())) != (unsigned long)-1)
+        str = buf;
+    delete[] buf;
+}
+
 MySQLPreparedStatement* MySQLConnection::GetPreparedStatement(uint32 index)
 {
     ASSERT(index < m_stmts.size());

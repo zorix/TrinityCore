@@ -95,6 +95,8 @@ class TC_DATABASE_API MySQLConnection
 
         uint32 GetLastError() { return mysql_errno(m_Mysql); }
 
+        void EscapeString(std::string& str);
+
     protected:
         bool LockIfReady()
         {
