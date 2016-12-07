@@ -23,6 +23,7 @@
 
 #include "DatabaseWorkerPool.h"
 #include "MySQLConnection.h"
+#include "HotfixDatabaseTypes.h"
 
 enum HotfixDatabaseStatements
 {

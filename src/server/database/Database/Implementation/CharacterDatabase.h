@@ -20,6 +20,7 @@
 
 #include "DatabaseWorkerPool.h"
 #include "MySQLConnection.h"
+#include "CharacterDatabaseTypes.h"
 
 enum CharacterDatabaseStatements
 {
@@ -630,6 +631,24 @@ enum CharacterDatabaseStatements
 
     MAX_CHARACTERDATABASE_STATEMENTS
 };
+
+namespace chardb
+{
+    namespace Statements
+    {
+        DECLARE_PREPARED_STATEMENT(DeleteQuestPoolSave, CHAR_DEL_QUEST_POOL_SAVE, CONNECTION_ASYNC,
+        {
+            PoolQuestSave pqs;
+            return sqlpp::remove_from(pqs).where(pqs.poolId == sqlpp::parameter(pqs.poolId));
+        });
+
+        DECLARE_PREPARED_STATEMENT(SelectGuidByName, CHAR_SEL_GUID_BY_NAME, CONNECTION_BOTH,
+        {
+            Characters c;
+            return sqlpp::select(c.guid).from(c).where(c.name == sqlpp::parameter(c.name));
+        });
+    }
+}
 
 class TC_DATABASE_API CharacterDatabaseConnection : public MySQLConnection
 {

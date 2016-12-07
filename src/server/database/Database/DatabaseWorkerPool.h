@@ -275,37 +275,9 @@ class DatabaseWorkerPool : public sqlpp::connection
         //! Keeps all our MySQL connections alive, prevent the server from disconnecting us.
         void KeepAlive();
 
-        // SQLPP
-
-        struct serializer_t
-        {
-            serializer_t(DatabaseWorkerPool& db) : _db(db)
-            {
-            }
-
-            template <typename Fragment>
-            fmt::BasicWriter<char>& operator<<(Fragment fragment)
-            {
-                return _writer << fragment;
-            }
-
-            std::string escape(std::string arg)
-            {
-                _db.EscapeString(arg);
-                return arg;
-            }
-
-            char const* c_str() const
-            {
-                return _writer.c_str();
-            }
-
-            DatabaseWorkerPool& _db;
-            fmt::MemoryWriter _writer;
-        };
-
-        using _serializer_context_t = serializer_t;
-        using _interpreter_context_t = serializer_t;
+        using _prepared_statement_t = TypedPreparedStatement;
+        using _serializer_context_t = MySQLSerializer;
+        using _interpreter_context_t = MySQLSerializer;
 
         struct _tags
         {
@@ -313,72 +285,48 @@ class DatabaseWorkerPool : public sqlpp::connection
         };
 
         template <typename Statement>
-        static serializer_t& _serialize_interpretable(Statement const& statement, serializer_t& context)
+        static MySQLSerializer& _serialize_interpretable(Statement const& statement, MySQLSerializer& context)
         {
             return ::sqlpp::serialize(statement, context);
         }
 
         template <typename Statement>
-        static serializer_t& _interpret_interpretable(Statement const& statement, serializer_t& context)
+        static MySQLSerializer& _interpret_interpretable(Statement const& statement, MySQLSerializer& context)
         {
             return ::sqlpp::serialize(statement, context);
         }
 
         // type hint
         template<typename Select> TypedQueryResult select(Select const&);
+        template<typename PreparedSelect> TypedPreparedQueryResult run_prepared_select(PreparedSelect const&);
 
         template <typename Select>
-        auto _TQuery(Select const& s, ::sqlpp::consistent_t) -> decltype(s._run(*this))
+        auto TQuery(Select const& s) -> decltype(this->_TQuery(s, sqlpp::run_check_t<MySQLSerializer, Select>{}, sqlpp::is_prepared_statement_t<Select>{}))
         {
-            serializer_t context(*this);
-            ::sqlpp::serialize(s, context);
-            return{ TypedQueryResult(Query(context.c_str())), s.get_dynamic_names() };
+            return _TQuery(s, sqlpp::run_check_t<MySQLSerializer, Select>{}, sqlpp::is_prepared_statement_t<Select>{});
         }
-
-        template <typename Check, typename Select>
-        auto _TQuery(Select const&, Check) -> Check;
-
-        template <typename Select>
-        auto TQuery(Select const& s) -> decltype(this->_TQuery(s, sqlpp::run_check_t<serializer_t, Select>{}))
-        {
-            return _TQuery(s, sqlpp::run_check_t<serializer_t, Select>{});
-        }
-
-        template <typename ExecuteStatement>
-        void _TExecute(ExecuteStatement const& e, ::sqlpp::consistent_t)
-        {
-            serializer_t context(this);
-            ::sqlpp::serialize(e, context);
-            Execute(context.c_str());
-        }
-
-        template <typename Check, typename ExecuteStatement>
-        auto _TExecute(ExecuteStatement const&, Check) -> Check;
 
         template <typename ExecuteStatement>
         void TExecute(ExecuteStatement const& q)
         {
-            _TExecute(q, sqlpp::run_check_t<serializer_t, ExecuteStatement>{});
+            _TExecute(q, sqlpp::run_check_t<MySQLSerializer, ExecuteStatement>{}, sqlpp::is_prepared_statement_t<ExecuteStatement>{});
         }
-
-        template <typename ExecuteStatement>
-        void _DirectTExecute(ExecuteStatement const& e, ::sqlpp::consistent_t)
-        {
-            serializer_t context(this);
-            ::sqlpp::serialize(e, context);
-            DirectExecute(context.c_str());
-        }
-
-        template <typename Check, typename ExecuteStatement>
-        auto _DirectTExecute(ExecuteStatement const&, Check)->Check;
 
         template <typename ExecuteStatement>
         void DirectTExecute(ExecuteStatement const& e)
         {
-            _DirectTExecute(e, sqlpp::run_check_t<serializer_t, ExecuteStatement>{});
+            _DirectTExecute(e, sqlpp::run_check_t<MySQLSerializer, ExecuteStatement>{}, sqlpp::is_prepared_statement_t<ExecuteStatement>{});
         }
 
-        // SQLPP END
+        template <typename Statement>
+        auto TGetPreparedStatement() -> decltype(std::declval<Statement::StatementType>()._prepare(*this))
+        {
+            using index = typename Statement::Index;
+            using StatementType = decltype(std::declval<Statement::StatementType>()._prepare(*this));
+            StatementType stmt;
+            stmt._prepared_statement._stmt = GetPreparedStatement(index::value);
+            return stmt;
+        }
 
     private:
         uint32 OpenConnections(InternalIndex type, uint8 numConnections);
@@ -396,6 +344,60 @@ class DatabaseWorkerPool : public sqlpp::connection
         {
             return _connectionInfo->database.c_str();
         }
+
+        template <typename Select>
+        auto _TQuery(Select const& s, ::sqlpp::consistent_t, std::false_type) -> decltype(s._run(*this))
+        {
+            MySQLSerializer context(_connections[IDX_SYNCH].front().get());
+            ::sqlpp::serialize(s, context);
+            return{ TypedQueryResult(Query(context.c_str())), s.get_dynamic_names() };
+        }
+
+        template <typename PreparedSelect>
+        auto _TQuery(PreparedSelect const& s, ::sqlpp::consistent_t, std::true_type) -> decltype(s._run(*this))
+        {
+            s._bind_params();
+            return{ TypedPreparedQueryResult(Query(s._prepared_statement._stmt)), s._dynamic_names };
+        }
+
+        template <typename Check, typename Select, typename IsPrepared>
+        auto _TQuery(Select const&, Check, IsPrepared) -> Check;
+
+        template <typename ExecuteStatement>
+        void _TExecute(ExecuteStatement const& e, ::sqlpp::consistent_t, std::false_type)
+        {
+            MySQLSerializer context(_connections[IDX_SYNCH].front().get());
+            ::sqlpp::serialize(e, context);
+            Execute(context.c_str());
+        }
+
+        template <typename PreparedExecuteStatement>
+        void _TExecute(PreparedExecuteStatement const& e, ::sqlpp::consistent_t, std::true_type)
+        {
+            s._bind_params();
+            Execute(e._stmt);
+        }
+
+        template <typename Check, typename ExecuteStatement, typename IsPrepared>
+        void _TExecute(ExecuteStatement const&, Check, IsPrepared);
+
+        template <typename ExecuteStatement>
+        void _DirectTExecute(ExecuteStatement const& e, ::sqlpp::consistent_t, std::false_type)
+        {
+            MySQLSerializer context(_connections[IDX_SYNCH].front().get());
+            ::sqlpp::serialize(e, context);
+            DirectExecute(context.c_str());
+        }
+
+        template <typename PreparedExecuteStatement>
+        void _DirectTExecute(PreparedExecuteStatement const& e, ::sqlpp::consistent_t, std::true_type)
+        {
+            s._bind_params();
+            Execute(e._stmt);
+        }
+
+        template <typename Check, typename ExecuteStatement, typename IsPrepared>
+        void _DirectTExecute(ExecuteStatement const&, Check, IsPrepared);
 
         //! Queue shared by async worker threads.
         std::unique_ptr<ProducerConsumerQueue<SQLOperation*>> _queue;

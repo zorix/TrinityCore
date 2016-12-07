@@ -108,6 +108,39 @@ class TC_DATABASE_API PreparedStatement
         PreparedStatement& operator=(PreparedStatement const& right) = delete;
 };
 
+class TypedPreparedStatement
+{
+public:
+    void _bind_integral_parameter(std::size_t index, int64_t const* value, bool is_null)
+    {
+        if (!is_null)
+            _stmt->setInt64(uint8(index), *value);
+        else
+            _stmt->setNull(uint8(index));
+    }
+
+    void _bind_floating_point_parameter(std::size_t index, double const* value, bool is_null)
+    {
+        if (!is_null)
+            _stmt->setDouble(uint8(index), *value);
+        else
+            _stmt->setNull(uint8(index));
+    }
+
+    void _bind_text_parameter(std::size_t index, std::string const* value, bool is_null)
+    {
+        if (!is_null)
+            _stmt->setString(uint8(index), *value);
+        else
+            _stmt->setNull(uint8(index));
+    }
+
+private:
+    template <class T> friend class DatabaseWorkerPool;
+    friend class Transaction;
+    PreparedStatement* _stmt = nullptr;
+};
+
 //- Class of which the instances are unique per MySQLConnection
 //- access to these class objects is only done when a prepared statement task
 //- is executed.

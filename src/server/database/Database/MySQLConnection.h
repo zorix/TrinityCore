@@ -19,6 +19,7 @@
 #include "Transaction.h"
 #include "Util.h"
 #include "ProducerConsumerQueue.h"
+#include "SQLSerializer.h"
 
 #ifndef _MYSQLCONNECTION_H
 #define _MYSQLCONNECTION_H
@@ -115,6 +116,12 @@ class TC_DATABASE_API MySQLConnection
         MySQLPreparedStatement* GetPreparedStatement(uint32 index);
         void PrepareStatement(uint32 index, const char* sql, ConnectionFlags flags);
 
+        template <typename PreparedStatement>
+        void TPrepareStatement()
+        {
+            _TPrepareStatement(PreparedStatement{}, sqlpp::prepare_check_t<MySQLSerializer, typename PreparedStatement::StatementType>{});
+        }
+
         virtual void DoPrepareStatements() = 0;
 
     protected:
@@ -125,6 +132,20 @@ class TC_DATABASE_API MySQLConnection
 
     private:
         bool _HandleMySQLErrno(uint32 errNo, uint8 attempts = 5);
+
+        template <typename PreparedStatement>
+        void _TPrepareStatement(PreparedStatement const&, ::sqlpp::consistent_t)
+        {
+            using StatementIndex = typename PreparedStatement::Index;
+            using StatementFlags = typename PreparedStatement::Flags;
+
+            MySQLSerializer context(this);
+            ::sqlpp::serialize(PreparedStatement::Statement, context);
+            PrepareStatement(StatementIndex::value, context.c_str(), StatementFlags::value);
+        }
+
+        template <typename Check, typename Statement>
+        void _TPrepareStatement(Statement const&, Check);
 
     private:
         ProducerConsumerQueue<SQLOperation*>* m_queue;      //! Queue shared with other asynchronous connections.
@@ -137,5 +158,22 @@ class TC_DATABASE_API MySQLConnection
         MySQLConnection(MySQLConnection const& right) = delete;
         MySQLConnection& operator=(MySQLConnection const& right) = delete;
 };
+
+// macros to create typed prepared statements, place this inside database specific namespace, in the implementation header
+#define DECLARE_PREPARED_STATEMENT(stmt_name, index, flags, stmt_initialize_body) \
+inline auto _Initialize_ ## stmt_name ()\
+stmt_initialize_body \
+struct TC_DATABASE_API stmt_name \
+{ \
+    using StatementType = decltype(_Initialize_ ## stmt_name ());\
+    using Index = std::integral_constant<decltype(index), index>;\
+    using Parameters = sqlpp::make_parameter_list_t<StatementType>;\
+    using Flags = std::integral_constant<ConnectionFlags, flags>;\
+    static StatementType const Statement;\
+};
+
+// and this one in implementation source, also inside the namespace
+#define DEFINE_PREPARED_STATEMENT(stmt_name) \
+stmt_name::StatementType const stmt_name::Statement = _Initialize_ ## stmt_name ();
 
 #endif
