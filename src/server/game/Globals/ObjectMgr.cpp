@@ -2320,11 +2320,11 @@ Player* ObjectMgr::GetPlayerByLowGUID(ObjectGuid::LowType lowguid) const
 // name must be checked to correctness (if received) before call this function
 ObjectGuid ObjectMgr::GetPlayerGUIDByName(std::string const& name)
 {
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GUID_BY_NAME);
-    stmt->setString(0, name);
+    auto stmt = CharacterDatabase.TGetPreparedStatement<chardb::Statements::SelectGuidByName>();
+    stmt.params.name = name;
 
-    if (PreparedQueryResult result = CharacterDatabase.Query(stmt))
-        return ObjectGuid::Create<HighGuid::Player>((*result)[0].GetUInt64());
+    if (auto result = CharacterDatabase.TQuery(stmt))
+        return ObjectGuid::Create<HighGuid::Player>(result.front().guid);
 
     return ObjectGuid::Empty;
 }

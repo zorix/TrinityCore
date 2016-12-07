@@ -969,9 +969,10 @@ void PoolMgr::SaveQuestsToDB()
     {
         if (itr->isEmpty())
             continue;
-        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_QUEST_POOL_SAVE);
-        stmt->setUInt32(0, itr->GetPoolId());
-        trans->Append(stmt);
+
+        auto stmt = CharacterDatabase.TGetPreparedStatement<chardb::Statements::DeleteQuestPoolSave>();
+        stmt.params.poolId = itr->GetPoolId();
+        trans->TAppend(stmt);
     }
 
     for (SearchMap::iterator itr = mQuestSearchMap.begin(); itr != mQuestSearchMap.end(); ++itr)
