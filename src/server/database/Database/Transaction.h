@@ -19,7 +19,10 @@
 #define _TRANSACTION_H
 
 #include "SQLOperation.h"
+#include "SQLSerializer.h"
 #include "StringFormat.h"
+#include <sqlpp11/serialize.h>
+#include <sqlpp11/type_traits.h>
 
 //- Forward declare (don't include header to prevent circular includes)
 class PreparedStatement;
@@ -34,7 +37,7 @@ class TC_DATABASE_API Transaction
     friend class DatabaseWorkerPool;
 
     public:
-        Transaction() : _cleanedUp(false) { }
+        Transaction(std::function<std::unique_ptr<SQLSerializer>()>&& querySerializer) : _querySerializer(std::move(querySerializer)), _cleanedUp(false) { }
         ~Transaction() { Cleanup(); }
 
         void Append(PreparedStatement* statement);
@@ -44,6 +47,11 @@ class TC_DATABASE_API Transaction
         {
             Append(Trinity::StringFormat(std::forward<Format>(sql), std::forward<Args>(args)...).c_str());
         }
+        template <typename TypedStatement>
+        void TAppend(TypedStatement const& stmt)
+        {
+            _TAppend(stmt, sqlpp::run_check_t<MySQLSerializer, TypedStatement>{}, sqlpp::is_prepared_statement_t<TypedStatement>{});
+        }
 
         size_t GetSize() const { return m_queries.size(); }
 
@@ -52,9 +60,28 @@ class TC_DATABASE_API Transaction
         std::list<SQLElementData> m_queries;
 
     private:
-        bool _cleanedUp;
+        template <typename TypedStatement>
+        void _TAppend(TypedStatement const& s, ::sqlpp::consistent_t, std::false_type)
+        {
+            std::unique_ptr<SQLSerializer> context = _querySerializer();
+            ::sqlpp::serialize(s, *context);
+            Append(context->c_str());
+        }
 
+        template <typename TypedStatement>
+        void _TAppend(TypedStatement const& s, ::sqlpp::consistent_t, std::true_type)
+        {
+            s._bind_params();
+            Append(s._prepared_statement._stmt);
+        }
+
+        template <typename Check, typename TypedStatement, typename IsPrepared>
+        void _TAppend(TypedStatement const&, Check, IsPrepared);
+
+        std::function<std::unique_ptr<SQLSerializer>()> _querySerializer;
+        bool _cleanedUp;
 };
+
 typedef std::shared_ptr<Transaction> SQLTransaction;
 
 /*! Low level class*/

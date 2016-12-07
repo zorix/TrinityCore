@@ -221,7 +221,7 @@ class DatabaseWorkerPool : public sqlpp::connection
         //! Begins an automanaged transaction pointer that will automatically rollback if not commited. (Autocommit=0)
         SQLTransaction BeginTransaction()
         {
-            return SQLTransaction(new Transaction);
+            return SQLTransaction(new Transaction([this]() -> std::unique_ptr<SQLSerializer> { return Trinity::make_unique<MySQLSerializer>(_connections[IDX_SYNCH].front().get()); }));
         }
 
         //! Enqueues a collection of one-way SQL operations (can be both adhoc and prepared). The order in which these operations
