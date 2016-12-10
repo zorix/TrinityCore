@@ -17,16 +17,6 @@
 
 #include "CharacterDatabase.h"
 
-namespace chardb
-{
-    namespace Statements
-    {
-        DEFINE_PREPARED_STATEMENT(DeleteQuestPoolSave);
-
-        DEFINE_PREPARED_STATEMENT(SelectGuidByName);
-    }
-}
-
 void CharacterDatabaseConnection::DoPrepareStatements()
 {
     if (!m_reconnecting)
@@ -39,11 +29,11 @@ void CharacterDatabaseConnection::DoPrepareStatements()
         "ig.gemItemId1, ig.gemBonuses1, ig.gemContext1, ig.gemScalingLevel1, ig.gemItemId2, ig.gemBonuses2, ig.gemContext2, ig.gemScalingLevel2, ig.gemItemId3, ig.gemBonuses3, ig.gemContext3, ig.gemScalingLevel3, " \
         "im.fixedScalingLevel, im.artifactKnowledgeLevel"
 
-    TPrepareStatement<chardb::Statements::DeleteQuestPoolSave>();
+    TPrepareStatement(chardb::Statements::DeleteQuestPoolSave{}, CONNECTION_ASYNC);
     PrepareStatement(CHAR_INS_QUEST_POOL_SAVE, "INSERT INTO pool_quest_save (pool_id, quest_id) VALUES (?, ?)", CONNECTION_ASYNC);
     PrepareStatement(CHAR_DEL_NONEXISTENT_GUILD_BANK_ITEM, "DELETE FROM guild_bank_item WHERE guildid = ? AND TabId = ? AND SlotId = ?", CONNECTION_ASYNC);
     PrepareStatement(CHAR_DEL_EXPIRED_BANS, "UPDATE character_banned SET active = 0 WHERE unbandate <= UNIX_TIMESTAMP() AND unbandate <> bandate", CONNECTION_ASYNC);
-    TPrepareStatement<chardb::Statements::SelectGuidByName>();
+    TPrepareStatement(chardb::Statements::SelectGuidByName{}, CONNECTION_BOTH);
     PrepareStatement(CHAR_SEL_CHECK_NAME, "SELECT 1 FROM characters WHERE name = ?", CONNECTION_BOTH);
     PrepareStatement(CHAR_SEL_CHECK_GUID, "SELECT 1 FROM characters WHERE guid = ?", CONNECTION_SYNCH);
     PrepareStatement(CHAR_SEL_SUM_CHARS, "SELECT COUNT(guid) FROM characters WHERE account = ?", CONNECTION_BOTH);

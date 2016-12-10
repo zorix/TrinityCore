@@ -116,10 +116,14 @@ class TC_DATABASE_API MySQLConnection
         MySQLPreparedStatement* GetPreparedStatement(uint32 index);
         void PrepareStatement(uint32 index, const char* sql, ConnectionFlags flags);
 
-        template <typename PreparedStatement>
-        void TPrepareStatement()
+        template <typename Statement>
+        void TPrepareStatement(Statement const& stmt, ConnectionFlags flags)
         {
-            _TPrepareStatement(PreparedStatement{}, sqlpp::prepare_check_t<MySQLSerializer, typename PreparedStatement::StatementType>{});
+            static_assert(sqlpp::prepare_check_t<MySQLSerializer, decltype(stmt.GetQuery())>::value, "Statement query must have a where clause or .unconditionally()");
+
+            MySQLSerializer context(this);
+            ::sqlpp::serialize(stmt.GetQuery(), context);
+            PrepareStatement(stmt.GetIndex(), context.c_str(), flags);
         }
 
         virtual void DoPrepareStatements() = 0;
@@ -133,20 +137,6 @@ class TC_DATABASE_API MySQLConnection
     private:
         bool _HandleMySQLErrno(uint32 errNo, uint8 attempts = 5);
 
-        template <typename PreparedStatement>
-        void _TPrepareStatement(PreparedStatement const&, ::sqlpp::consistent_t)
-        {
-            using StatementIndex = typename PreparedStatement::Index;
-            using StatementFlags = typename PreparedStatement::Flags;
-
-            MySQLSerializer context(this);
-            ::sqlpp::serialize(PreparedStatement::Statement, context);
-            PrepareStatement(StatementIndex::value, context.c_str(), StatementFlags::value);
-        }
-
-        template <typename Check, typename Statement>
-        void _TPrepareStatement(Statement const&, Check);
-
     private:
         ProducerConsumerQueue<SQLOperation*>* m_queue;      //! Queue shared with other asynchronous connections.
         std::unique_ptr<DatabaseWorker> m_worker;           //! Core worker task.
@@ -159,21 +149,15 @@ class TC_DATABASE_API MySQLConnection
         MySQLConnection& operator=(MySQLConnection const& right) = delete;
 };
 
-// macros to create typed prepared statements, place this inside database specific namespace, in the implementation header
-#define DECLARE_PREPARED_STATEMENT(stmt_name, index, flags, stmt_initialize_body) \
-inline auto _Initialize_ ## stmt_name ()\
+// macro to create typed prepared statements, place this inside database specific namespace, in the implementation header
+#define DECLARE_PREPARED_STATEMENT(stmt_name, index, database, stmt_initialize_body) \
+inline auto Get ## stmt_name ()\
 stmt_initialize_body \
 struct TC_DATABASE_API stmt_name \
 { \
-    using StatementType = decltype(_Initialize_ ## stmt_name ());\
-    using Index = std::integral_constant<decltype(index), index>;\
-    using Parameters = sqlpp::make_parameter_list_t<StatementType>;\
-    using Flags = std::integral_constant<ConnectionFlags, flags>;\
-    static StatementType const Statement;\
+    database::PreparedStatementIndex GetIndex() const { return index; }\
+    auto GetQuery() const -> decltype(Get ## stmt_name()) { return Get ## stmt_name (); }\
+    using ResultType = decltype(Get ## stmt_name ()._prepare(std::declval<database&>())._run(std::declval<database&>()));\
 };
-
-// and this one in implementation source, also inside the namespace
-#define DEFINE_PREPARED_STATEMENT(stmt_name) \
-stmt_name::StatementType const stmt_name::Statement = _Initialize_ ## stmt_name ();
 
 #endif

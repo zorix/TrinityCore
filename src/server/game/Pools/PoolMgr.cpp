@@ -970,7 +970,7 @@ void PoolMgr::SaveQuestsToDB()
         if (itr->isEmpty())
             continue;
 
-        auto stmt = CharacterDatabase.TGetPreparedStatement<chardb::Statements::DeleteQuestPoolSave>();
+        auto stmt = CharacterDatabase.TGetPreparedStatement(chardb::Statements::DeleteQuestPoolSave{});
         stmt.params.poolId = itr->GetPoolId();
         trans->TAppend(stmt);
     }
