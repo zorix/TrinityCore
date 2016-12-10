@@ -138,19 +138,25 @@ public:
         return std::size_t(_rawResult->GetRowCount());
     }
 
-    void _bind_floating_point_result(size_t index, double* value, bool* is_null)
-    {
-        *is_null = (*_rawResult)[uint32(index)].IsNull();
-        *value = (*_rawResult)[uint32(index)].GetDouble();
-    }
-
-    void _bind_integral_result(size_t index, int64_t* value, bool* is_null)
+    void _bind_integral_result(std::size_t index, int64* value, bool* is_null)
     {
         *is_null = (*_rawResult)[uint32(index)].IsNull();
         *value = (*_rawResult)[uint32(index)].GetInt64();
     }
 
-    void _bind_text_result(size_t index, const char** value, size_t* len)
+    void _bind_unsigned_integral_result(std::size_t index, uint64* value, bool* is_null)
+    {
+        *is_null = (*_rawResult)[uint32(index)].IsNull();
+        *value = (*_rawResult)[uint32(index)].GetUInt64();
+    }
+
+    void _bind_floating_point_result(std::size_t index, double* value, bool* is_null)
+    {
+        *is_null = (*_rawResult)[uint32(index)].IsNull();
+        *value = (*_rawResult)[uint32(index)].GetDouble();
+    }
+
+    void _bind_text_result(std::size_t index, const char** value, std::size_t* len)
     {
         *value = (*_rawResult)[uint32(index)].GetCString();
         *len = (*_rawResult)[uint32(index)].GetLength();

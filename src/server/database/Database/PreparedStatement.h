@@ -111,10 +111,18 @@ class TC_DATABASE_API PreparedStatement
 class TypedPreparedStatement
 {
 public:
-    void _bind_integral_parameter(std::size_t index, int64_t const* value, bool is_null)
+    void _bind_integral_parameter(std::size_t index, int64 const* value, bool is_null)
     {
         if (!is_null)
             _stmt->setInt64(uint8(index), *value);
+        else
+            _stmt->setNull(uint8(index));
+    }
+
+    void _bind_unsigned_integral_parameter(std::size_t index, uint64 const* value, bool is_null)
+    {
+        if (!is_null)
+            _stmt->setUInt64(uint8(index), *value);
         else
             _stmt->setNull(uint8(index));
     }

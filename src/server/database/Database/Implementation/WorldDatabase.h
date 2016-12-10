@@ -20,6 +20,7 @@
 
 #include "DatabaseWorkerPool.h"
 #include "MySQLConnection.h"
+#include "WorldDatabaseTypes.h"
 
 enum WorldDatabaseStatements
 {
