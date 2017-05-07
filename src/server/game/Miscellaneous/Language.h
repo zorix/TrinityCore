@@ -1147,7 +1147,34 @@ enum TrinityStrings
     LANG_COMMAND_MUTEHISTORY_EMPTY      = 5060,
     LANG_COMMAND_MUTEHISTORY_OUTPUT     = 5061,
 
-    // Room for more Trinity strings      5062-9999
+    // Scene debugs commands [Master only, not used in 3.3.5]
+    /*LANG_COMMAND_SCENE_DEBUG_ON         = 5062,
+    LANG_COMMAND_SCENE_DEBUG_OFF        = 5063,
+    LANG_COMMAND_SCENE_DEBUG_PLAY       = 5064,
+    LANG_COMMAND_SCENE_DEBUG_TRIGGER    = 5065,
+    LANG_COMMAND_SCENE_DEBUG_CANCEL     = 5066,
+    LANG_COMMAND_SCENE_DEBUG_COMPLETE   = 5067,
+    LANG_DEBUG_SCENE_OBJECT_LIST        = 5068,
+    LANG_DEBUG_SCENE_OBJECT_DETAIL      = 5069, */
+
+    // Strings added for dynamic spawns
+    LANG_NPCINFO_GROUP_ID               = 5070,
+    LANG_NPCINFO_COMPATIBILITY_MODE     = 5071,
+    LANG_GOINFO_GROUP_ID                = 5072,
+    LANG_GOINFO_COMPATIBILITY_MODE      = 5073,
+    LANG_GOINFO_GUIDINFO                = 5074,
+    LANG_GOINFO_SPAWNID_LOCATION        = 5075,
+    LANG_GOINFO_DISTANCEFROMPLAYER      = 5076,
+    LANG_NPCSPAWNGROUP_BADGROUP         = 5077,
+    LANG_GOSPAWNGROUP_BADGROUP          = 5078,
+    LANG_LIST_RESPAWNS                  = 5079,
+    LANG_LIST_RESPAWNS_LISTHEADER       = 5080,
+    LANG_LIST_RESPAWNS_LISTDATA         = 5081,
+    LANG_LIST_RESPAWNS_OVERDUE          = 5082,
+    LANG_LIST_RESPAWNS_CREATURES        = 5083,
+    LANG_LIST_RESPAWNS_GAMEOBJECTS      = 5084,
+
+    // Room for more Trinity strings      5085-6603
 
     // Level requirement notifications
     LANG_SAY_REQ                        = 6604,

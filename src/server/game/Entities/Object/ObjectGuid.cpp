@@ -97,6 +97,14 @@ void ObjectGuidGeneratorBase::HandleCounterOverflow(HighGuid high)
     World::StopNow(ERROR_EXIT_CODE);
 }
 
+void ObjectGuidGeneratorBase::CheckGuidTrigger(ObjectGuid::LowType guidlow)
+{
+    if (!sWorld->isGuidAlert() && guidlow > sWorld->getIntConfig(CONFIG_RESPAWN_GUIDALERTLEVEL))
+        sWorld->TriggerGuidAlert();
+    else if (!sWorld->isGuidWarning() && guidlow > sWorld->getIntConfig(CONFIG_RESPAWN_GUIDWARNLEVEL))
+        sWorld->TriggerGuidWarning();
+}
+
 #define GUID_TRAIT_INSTANTIATE_GUID( HIGH_GUID ) \
     template class TC_GAME_API ObjectGuidGenerator< HIGH_GUID >;
 

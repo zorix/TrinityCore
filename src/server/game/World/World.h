@@ -770,6 +770,10 @@ class TC_GAME_API World
         void ReloadRBAC();
 
         void RemoveOldCorpses();
+        void TriggerGuidWarning();
+        void TriggerGuidAlert();
+        bool isGuidWarning() { return guidWarn; }
+        bool isGuidAlert() { return guidAlert; }
 
     protected:
         void _UpdateGameTime();
@@ -864,7 +868,21 @@ class TC_GAME_API World
         AutobroadcastsWeightMap m_AutobroadcastsWeights;
 
         void ProcessQueryCallbacks();
+
+        void SendGuidWarning();
+        void DoGuidWarningRestart();
+        void DoGuidAlertRestart();
         QueryCallbackProcessor _queryProcessor;
+
+        std::string respawnWarningMsg;
+        std::string alertRestartReason;
+
+        std::mutex _guidAlertLock;
+
+        bool guidWarn;
+        bool guidAlert;
+        uint32 warnDiff;
+        time_t warnShutdownTime;
 };
 
 TC_GAME_API extern Realm realm;
