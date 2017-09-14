@@ -147,14 +147,14 @@ public:
                         else
                             pHatefulTarget = (secondThreat->GetVictim()->GetHealth() < thirdThreat->GetVictim()->GetHealth()) ? thirdThreat->GetVictim() : secondThreat->GetVictim();
 
-                        DoCast(pHatefulTarget, SPELL_HATEFUL_STRIKE, true);
-
                         // add threat to highest threat targets
                         AddThreat(currentVictim, HATEFUL_THREAT_AMT);
                         if (secondThreat)
                             secondThreat->AddThreat(HATEFUL_THREAT_AMT);
                         if (thirdThreat)
                             thirdThreat->AddThreat(HATEFUL_THREAT_AMT);
+
+                        DoCast(pHatefulTarget, SPELL_HATEFUL_STRIKE, true);
 
                         events.Repeat(Seconds(1));
                         break;
